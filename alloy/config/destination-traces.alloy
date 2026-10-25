@@ -1,0 +1,13 @@
+// Traces destination: Grafana Cloud Tempo (OTLP). The endpoint must be
+// host:port with no scheme.
+otelcol.auth.basic "grafana_cloud" {
+	username = sys.env("GRAFANA_CLOUD_TEMPO_USER")
+	password = sys.env("GRAFANA_CLOUD_TOKEN")
+}
+
+otelcol.exporter.otlp "grafana_cloud" {
+	client {
+		endpoint = sys.env("GRAFANA_CLOUD_TEMPO_URL")
+		auth     = otelcol.auth.basic.grafana_cloud.handler
+	}
+}

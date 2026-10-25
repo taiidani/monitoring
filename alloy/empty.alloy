@@ -1,0 +1,2 @@
+// Intentionally empty. Replaces the config.alloy shipped in the Alloy image so that
+// only the typed files from ./config are loaded from /etc/alloy.

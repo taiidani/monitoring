@@ -1,0 +1,38 @@
+# Proxmox host "obsidian" (Debian): host metrics and the systemd journal.
+# Config files: hostname, host-metrics, destination-metrics/logs (shared base)
+# plus journal-logs here.
+
+[vars]
+# Lets the unprivileged alloy user read the journal.
+supplementary_groups = "systemd-journal"
+
+[bootstrap.apt.sources.grafana]
+uris = "https://apt.grafana.com"
+suites = "stable"
+components = "main"
+key = "https://apt.grafana.com/gpg.key"
+fingerprint = "B53A E77B ADB6 30A6 8304 6005 963F A277 1045 8545"
+
+[bootstrap.packages]
+"apt:alloy" = "latest"
+
+[bootstrap.files."/etc/alloy/conf.d/journal-logs.alloy"]
+source = "./config/journal-logs.alloy"
+mode = "0644"
+owner = "root"
+group = "root"
+notify = ["alloy"]
+
+# Superseded by the typed files in ./config. mise never removes files on its
+# own, and a leftover copy would define every component twice and stop Alloy.
+[bootstrap.files."/etc/alloy/conf.d/obsidian.alloy"]
+state = "absent"
+notify = ["alloy"]
+
+[bootstrap.files."/etc/alloy/conf.d/common.alloy"]
+state = "absent"
+notify = ["alloy"]
+
+[bootstrap.files."/etc/alloy/conf.d/journal.alloy"]
+state = "absent"
+notify = ["alloy"]

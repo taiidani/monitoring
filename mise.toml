@@ -1,3 +1,12 @@
 [tools]
 fnox = "latest"
 terraform = "1.14"
+
+[bootstrap.remote.hosts.obsidian]
+host = "obsidian"
+user = "root"
+source = "alloy"
+mise_env = ["obsidian"]
+# The Uncloud deployment files share this directory; the host doesn't need them.
+exclude = ["compose.yml", "fnox.toml", "obi-config.yml", "empty.alloy"]
+tags = ["proxmox"]

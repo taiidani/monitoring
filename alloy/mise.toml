@@ -1,0 +1,99 @@
+# Shared bootstrap for hosts running Alloy as a native systemd service. Each
+# host adds an overlay selected by `mise_env` in the repo-root inventory
+# (currently mise.obsidian.toml). Alloy config comes from ./config; `web` runs
+# the same files under Uncloud instead (see compose.yml).
+#
+# Preview: mise bootstrap remote <host> --dry-run --prompt-secrets
+# Apply:   mise bootstrap remote <host> --prompt-secrets
+
+[vars]
+# Not secret: the Grafana Cloud endpoints and instance IDs.
+prom_url = "https://prometheus-prod-36-prod-us-west-0.grafana.net/api/prom/push"
+prom_user = "1641577"
+loki_url = "https://logs-prod-021.grafana.net/loki/api/v1/push"
+loki_user = "920725"
+# Per-host override for the systemd unit (see the overlays).
+supplementary_groups = ""
+
+[bootstrap.secrets]
+# A remote run does not copy the local environment, so pass this with
+# --prompt-secrets (value is in 1Password: "Grafana Cloud/credential").
+grafana_cloud_token = "GRAFANA_CLOUD_TOKEN"
+
+# Alloy loads every *.alloy file in this directory as one configuration.
+[bootstrap.directories."/etc/alloy/conf.d"]
+mode = "0755"
+owner = "root"
+group = "root"
+
+[bootstrap.files."/etc/alloy/conf.d/hostname.alloy"]
+source = "./config/hostname.alloy"
+mode = "0644"
+owner = "root"
+group = "root"
+notify = ["alloy"]
+
+[bootstrap.files."/etc/alloy/conf.d/host-metrics.alloy"]
+source = "./config/host-metrics.alloy"
+mode = "0644"
+owner = "root"
+group = "root"
+notify = ["alloy"]
+
+[bootstrap.files."/etc/alloy/conf.d/destination-metrics.alloy"]
+source = "./config/destination-metrics.alloy"
+mode = "0644"
+owner = "root"
+group = "root"
+notify = ["alloy"]
+
+[bootstrap.files."/etc/alloy/conf.d/destination-logs.alloy"]
+source = "./config/destination-logs.alloy"
+mode = "0644"
+owner = "root"
+group = "root"
+notify = ["alloy"]
+
+# Credentials, kept out of the config and readable by root only (systemd reads
+# the file as root before dropping privileges).
+[bootstrap.files."/etc/alloy/grafana-cloud.env"]
+template = true
+mode = "0600"
+owner = "root"
+group = "root"
+notify = ["alloy"]
+content = """
+GRAFANA_CLOUD_PROM_URL={{ vars.prom_url }}
+GRAFANA_CLOUD_PROM_USER={{ vars.prom_user }}
+GRAFANA_CLOUD_LOKI_URL={{ vars.loki_url }}
+GRAFANA_CLOUD_LOKI_USER={{ vars.loki_user }}
+GRAFANA_CLOUD_TOKEN={{ secret(name="grafana_cloud_token") }}
+"""
+
+# Distro-neutral override: the package's env file lives at /etc/default/alloy on
+# Debian but /etc/sysconfig/alloy on RPM systems, so point at our own instead.
+[bootstrap.directories."/etc/systemd/system/alloy.service.d"]
+mode = "0755"
+owner = "root"
+group = "root"
+
+[bootstrap.files."/etc/systemd/system/alloy.service.d/mise.conf"]
+template = true
+mode = "0644"
+owner = "root"
+group = "root"
+notify = ["alloy"]
+content = """
+[Service]
+EnvironmentFile=/etc/alloy/grafana-cloud.env
+ExecStart=
+ExecStart=/usr/bin/alloy run --storage.path=/var/lib/alloy/data /etc/alloy/conf.d
+{%- if vars.supplementary_groups %}
+SupplementaryGroups={{ vars.supplementary_groups }}
+{%- endif %}
+"""
+
+[bootstrap.services.alloy]
+state = "running"
+enabled = true
+on_change = "restart"

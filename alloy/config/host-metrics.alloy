@@ -1,0 +1,40 @@
+// Host metrics (CPU, memory, disk, network) from the built-in node exporter.
+// In a container, ALLOY_ROOTFS_PATH points at the host's root filesystem
+// (/proc/1/root with pid: host); natively it defaults to "/".
+//
+// job/instance match the original Prometheus scrape config so the dashboard and
+// the `up{job="node"}` alert work the same on every host.
+prometheus.exporter.unix "node" {
+	rootfs_path = coalesce(sys.env("ALLOY_ROOTFS_PATH"), "/")
+}
+
+discovery.relabel "node" {
+	targets = prometheus.exporter.unix.node.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "node"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = string.trim_space(local.file.hostname.content)
+	}
+}
+
+prometheus.scrape "node" {
+	targets         = discovery.relabel.node.output
+	scrape_interval = "60s"
+	forward_to      = [prometheus.relabel.node.receiver]
+}
+
+// Free tier allows 10k active series: drop low-value node series.
+prometheus.relabel "node" {
+	forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "node_scrape_collector_.*|node_nfs_.*|node_cooling_device_.*|node_systemd_.*"
+		action        = "drop"
+	}
+}

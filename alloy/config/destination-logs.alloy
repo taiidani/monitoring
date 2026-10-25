@@ -1,0 +1,16 @@
+// Logs destination: Grafana Cloud Loki. The "host" label lets logs be filtered
+// by machine across the fleet.
+loki.write "grafana_cloud" {
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+
+	external_labels = {
+		host = string.trim_space(local.file.hostname.content),
+	}
+}

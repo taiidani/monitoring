@@ -1,0 +1,58 @@
+// OTLP receiver for traces and metrics from local apps and the OBI
+// auto-instrumenter, over gRPC (4317) and HTTP (4318), the OpenTelemetry
+// defaults. Apps on the host point their exporter at it.
+otelcol.receiver.otlp "default" {
+	grpc {
+		endpoint = "0.0.0.0:4317"
+	}
+
+	http {
+		endpoint = "0.0.0.0:4318"
+	}
+
+	output {
+		traces  = [otelcol.processor.attributes.default.input]
+		metrics = [otelcol.exporter.prometheus.default.input]
+	}
+}
+
+// Stamp every span with the source machine so traces can be correlated with
+// logs (which carry the matching "host" label).
+otelcol.processor.attributes "default" {
+	action {
+		key    = "host.name"
+		value  = string.trim_space(local.file.hostname.content)
+		action = "upsert"
+	}
+
+	output {
+		traces = [otelcol.processor.filter.drop_ping.input]
+	}
+}
+
+// Drop healthcheck "ping" spans; they are noise and don't need observability.
+otelcol.processor.filter "drop_ping" {
+	error_mode = "ignore"
+
+	traces {
+		span = [
+			`IsMatch(name, "(?i)^ping$")`,
+		]
+	}
+
+	output {
+		traces = [otelcol.processor.batch.default.input]
+	}
+}
+
+// Batch spans before shipping to cut network overhead.
+otelcol.processor.batch "default" {
+	output {
+		traces = [otelcol.exporter.otlp.grafana_cloud.input]
+	}
+}
+
+// Convert OTLP metrics to Prometheus format.
+otelcol.exporter.prometheus "default" {
+	forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}

@@ -4,13 +4,41 @@ services:
     restart: unless-stopped
     deploy:
       mode: global
+    # Alloy loads every *.alloy file in /etc/alloy. The shared, typed config
+    # files live in ./config (also used by the Mise-managed hosts); the empty
+    # config.alloy replaces the image's default, which would otherwise be loaded
+    # too. Targets must be in an existing directory, so not /etc/alloy/conf.d.
     configs:
-      - source: alloy_config
+      - source: alloy_hostname
+        target: /etc/alloy/hostname.alloy
+        mode: 0644
+      - source: alloy_host_metrics
+        target: /etc/alloy/host-metrics.alloy
+        mode: 0644
+      - source: alloy_container_metrics
+        target: /etc/alloy/container-metrics.alloy
+        mode: 0644
+      - source: alloy_docker_logs
+        target: /etc/alloy/docker-logs.alloy
+        mode: 0644
+      - source: alloy_otlp
+        target: /etc/alloy/otlp.alloy
+        mode: 0644
+      - source: alloy_destination_metrics
+        target: /etc/alloy/destination-metrics.alloy
+        mode: 0644
+      - source: alloy_destination_logs
+        target: /etc/alloy/destination-logs.alloy
+        mode: 0644
+      - source: alloy_destination_traces
+        target: /etc/alloy/destination-traces.alloy
+        mode: 0644
+      - source: alloy_empty
         target: /etc/alloy/config.alloy
         mode: 0644
     command:
       - run
-      - /etc/alloy/config.alloy
+      - /etc/alloy
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
     # Needed by the built-in cAdvisor/node exporters.
@@ -18,6 +46,9 @@ services:
     pid: host
     mem_limit: 1g
     environment:
+      # Read by config/hostname.alloy and config/host-metrics.alloy.
+      ALLOY_HOSTNAME_FILE: /etc/host_hostname
+      ALLOY_ROOTFS_PATH: /proc/1/root
       GRAFANA_CLOUD_TOKEN: secret://GRAFANA_CLOUD_TOKEN
       GRAFANA_CLOUD_PROM_URL: secret://GRAFANA_CLOUD_PROM_URL
       GRAFANA_CLOUD_PROM_USER: secret://GRAFANA_CLOUD_PROM_USER
@@ -69,8 +100,24 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
 configs:
-  alloy_config:
-    file: ./config.alloy
+  alloy_hostname:
+    file: ./config/hostname.alloy
+  alloy_host_metrics:
+    file: ./config/host-metrics.alloy
+  alloy_container_metrics:
+    file: ./config/container-metrics.alloy
+  alloy_docker_logs:
+    file: ./config/docker-logs.alloy
+  alloy_otlp:
+    file: ./config/otlp.alloy
+  alloy_destination_metrics:
+    file: ./config/destination-metrics.alloy
+  alloy_destination_logs:
+    file: ./config/destination-logs.alloy
+  alloy_destination_traces:
+    file: ./config/destination-traces.alloy
+  alloy_empty:
+    file: ./empty.alloy
   obi_config:
     file: ./obi-config.yml
 

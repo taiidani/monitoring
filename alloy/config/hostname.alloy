@@ -1,0 +1,8 @@
+// The real machine hostname, used for the "host"/"instance" labels so every
+// host is labelled consistently. constants.hostname is the container's own
+// hostname when Alloy runs in a container, so the hostname file is read
+// instead: ALLOY_HOSTNAME_FILE points at the bind-mounted host file there, and
+// natively it defaults to /etc/hostname.
+local.file "hostname" {
+	filename = coalesce(sys.env("ALLOY_HOSTNAME_FILE"), "/etc/hostname")
+}

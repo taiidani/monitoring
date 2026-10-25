@@ -1,0 +1,44 @@
+// Per-container metrics from the built-in cAdvisor exporter (Docker hosts).
+prometheus.exporter.cadvisor "containers" {
+	docker_host      = "unix:///var/run/docker.sock"
+	storage_duration = "5m"
+	enabled_metrics  = ["cpu", "memory", "network", "disk"]
+}
+
+discovery.relabel "cadvisor" {
+	targets = prometheus.exporter.cadvisor.containers.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "cadvisor"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = string.trim_space(local.file.hostname.content)
+	}
+}
+
+prometheus.scrape "cadvisor" {
+	targets         = discovery.relabel.cadvisor.output
+	scrape_interval = "60s"
+	forward_to      = [prometheus.relabel.cadvisor.receiver]
+}
+
+// Keep only container-level series that carry a container name, and drop
+// per-device/per-failure series that dominated the old cAdvisor cardinality.
+prometheus.relabel "cadvisor" {
+	forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+	rule {
+		source_labels = ["__name__", "name"]
+		regex         = "container_.*;"
+		action        = "drop"
+	}
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "container_(blkio_device_usage_total|tasks_state|memory_failures_total|fs_(reads|writes)(_bytes)?_total|fs_(read|write)_seconds_total|fs_io_.*|fs_sector_.*|fs_(reads|writes)_merged_total)"
+		action        = "drop"
+	}
+}

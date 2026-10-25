@@ -1,0 +1,21 @@
+// systemd journal logs.
+loki.relabel "journal" {
+	forward_to = []
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__journal_priority_keyword"]
+		target_label  = "level"
+	}
+}
+
+loki.source.journal "host" {
+	max_age       = "12h"
+	relabel_rules = loki.relabel.journal.rules
+	labels        = { job = "systemd-journal" }
+	forward_to    = [loki.write.grafana_cloud.receiver]
+}
