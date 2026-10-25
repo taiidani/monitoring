@@ -5,3 +5,12 @@ updates:
       - /alloy
     schedule:
       interval: "monthly"
+
+  - package-ecosystem: "terraform"
+    directories:
+      - "/terraform"
+    schedule:
+      interval: "monthly"
+    groups:
+      terraform:
+        patterns: ["*"]
